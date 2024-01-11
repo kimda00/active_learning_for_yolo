@@ -66,6 +66,9 @@ def detect(save_img=False):
     old_img_w = old_img_h = imgsz
     old_img_b = 1
 
+    # 예측한 정확도들 중 가장 낮은 정확도들 저장해놓을 배열
+    pred_percentage = []
+
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -116,6 +119,7 @@ def detect(save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
+                min_image = [100.0, '']  # 초기화
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
@@ -128,6 +132,11 @@ def detect(save_img=False):
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
+                    # 하나의 이미지에서 가장 낮은 정확도 저장
+                    if min_image[0] > conf:
+                        min_image = [float(f'{conf}'), im0]
+                pred_percentage.append(min_image)
+                
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
@@ -162,6 +171,14 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
+    # 정확도들 정렬
+    pred_percentage.sort()
+    
+    # TODO 이미지, 라벨 파일 저장
+    for i in range(len(pred_percentage) * opt.percentage):
+        print(pred_percentage[i])
+        pass
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -183,6 +200,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
+    parser.add_argument('--percentage', type=float, default=0.1, help='re-label percentage')
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('pycocotools', 'thop'))
